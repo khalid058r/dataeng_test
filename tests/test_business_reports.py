@@ -1,4 +1,4 @@
-"""Règles de classement, ex æquo et comparaison de périodes sur petits jeux."""
+"""Tests des classements et de la comparaison de périodes."""
 
 from collections import Counter, defaultdict
 import csv
@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @pytest.fixture
 def report_db():
+    """Préparer les dimensions et les vues dans une base en mémoire."""
     connection = sqlite3.connect(":memory:")
     connection.execute("PRAGMA foreign_keys = ON")
     for filename in ("02_star_schema.sql", "03_monthly_sales.sql", "04_business_reports.sql"):
@@ -40,6 +41,7 @@ def report_db():
 
 @pytest.fixture
 def ranked_sales(report_db):
+    """Ajouter des ventes avec égalités pour tester les classements."""
     modes = ("AIR", "AIR", "MAIL", "MAIL", "RAIL")
     report_db.executemany("INSERT INTO fact_sales VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [
         (i, 1, i, "1998-01-01", 10 if i == 1 else 1, 100, 0, modes[i - 1])
@@ -60,8 +62,8 @@ def test_top_five_aggregate_clients_and_break_country_ties(ranked_sales):
 
 
 def test_shipping_counts_lines_of_top_five_globally_and_keeps_ties(ranked_sales):
-    # RAIL est majoritaire sur tout le jeu, mais le sixième pays est exclu.
-    # AIR et MAIL ont deux lignes chacun ; la quantité de la première ligne n'est pas un poids.
+    # Le sixième pays est exclu, même si RAIL y domine.
+    # AIR et MAIL ont deux lignes chacun, sans pondérer la quantité.
     assert ranked_sales.execute("SELECT * FROM top_shipping_modes ORDER BY ship_mode").fetchall() == [
         ("AIR", 2), ("MAIL", 2),
     ]
@@ -74,7 +76,7 @@ def test_customer_rankings_have_different_measures_and_stable_ties(ranked_sales)
     assert ranked_sales.execute(
         "SELECT customer_id FROM customers_by_quantity ORDER BY position"
     ).fetchall() == [(i,) for i in (6, 1, 2, 3, 4, 5, 7)]
-    # Le client 8, conservé dans la dimension, n'a aucune ligne de vente.
+    # Le client 8 n'a pas de vente.
     assert ranked_sales.execute("SELECT COUNT(*) FROM sales_by_customer").fetchone()[0] == 7
 
 
@@ -105,7 +107,7 @@ def test_comparison_keeps_missing_periods_distinct_from_zero(
             report_db.execute(
                 "INSERT INTO fact_sales VALUES (?, 1, 1, ?, 1, ?, 0, 'AIR')", (order, month, revenue)
             )
-    # Le mois maximal (mars) est exclu, même s'il contient un revenu très élevé.
+    # Ignorer mars, même si son revenu est le plus élevé.
     report_db.execute("INSERT INTO fact_sales VALUES (3, 1, 1, '1998-03-02', 1, 99999, 0, 'AIR')")
     assert report_db.execute("SELECT * FROM period_comparison").fetchone() == (
         "1998-02", "1998-01", current, previous, difference, percent, status,
@@ -132,6 +134,7 @@ def test_empty_data_and_fewer_than_five_countries(report_db):
 
 
 def read_records(name):
+    """Lire un fichier source pour calculer les résultats attendus."""
     with (ROOT / "data" / f"{name}.tbl").open(encoding="ascii", newline="") as source:
         return list(csv.reader(source, delimiter="|", quoting=csv.QUOTE_NONE))
 

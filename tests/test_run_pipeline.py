@@ -1,4 +1,4 @@
-"""Contrat du lanceur planifiable : succès, arrêt après erreur et exclusion mutuelle."""
+"""Tests du lanceur : succès, erreurs et verrouillage."""
 
 import csv
 import fcntl
@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def run_pipeline(tmp_path, data_dir):
+    """Exécuter le lanceur avec des sorties temporaires."""
     environment = os.environ.copy()
     environment.update({
         "PIPELINE_PYTHON": sys.executable,

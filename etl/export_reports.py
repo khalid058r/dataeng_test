@@ -1,4 +1,7 @@
-"""Exporter les rapports SQL en CSV : python -m etl.export_reports."""
+"""Exporter les sept rapports SQL en CSV.
+
+Commande : python -m etl.export_reports
+"""
 
 import argparse
 import csv
@@ -20,10 +23,14 @@ REPORT_QUERIES = {
 
 
 def export_reports(database: Path, output_dir: Path) -> dict[str, int]:
-    """Lire un instantané de la base, puis écrire les sept résultats avec en-têtes."""
-    # mode=ro refuse une base absente et interdit de modifier l'entrepôt.
+    """Lire les rapports sur un même instantané, puis écrire les CSV.
+
+    Retourner le nombre de lignes exportées pour chaque rapport.
+    """
+    # Lecture seule : une base absente provoque une erreur.
     connection = sqlite3.connect(Path(database).resolve().as_uri() + "?mode=ro", uri=True)
     try:
+        # Garder la même version des données pour tous les rapports.
         connection.execute("BEGIN")
         results = {}
         for name, query in REPORT_QUERIES.items():
@@ -45,6 +52,7 @@ def export_reports(database: Path, output_dir: Path) -> dict[str, int]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Lire les options, lancer l'export et retourner 0 ou 1."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", type=Path, default=PROJECT_ROOT / "outputs/warehouse.sqlite")
     parser.add_argument("--output-dir", type=Path, default=PROJECT_ROOT / "outputs")

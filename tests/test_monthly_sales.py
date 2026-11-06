@@ -1,4 +1,4 @@
-"""Vérifier le rapport mensuel avec des résultats calculables indépendamment."""
+"""Tests du rapport mensuel et de ses arrondis."""
 
 from collections import defaultdict
 import csv
@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @pytest.fixture
 def connection():
+    """Préparer l'étoile et le rapport dans une base en mémoire."""
     conn = sqlite3.connect(":memory:")
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript((ROOT / "sql/02_star_schema.sql").read_text(encoding="utf-8"))
@@ -24,7 +25,7 @@ def connection():
     conn.executemany("INSERT INTO dim_date VALUES (?, ?, ?, ?)", [
         ("1997-01-31", 1997, 1, 31),
         ("1998-01-01", 1998, 1, 1),
-        ("1998-02-01", 1998, 2, 1),  # Mois sans vente.
+        ("1998-02-01", 1998, 2, 1),  # Aucune vente en février.
         ("1998-03-02", 1998, 3, 2),
     ])
     try:
@@ -39,7 +40,7 @@ def test_manual_monthly_totals_and_rounding(connection):
         (1, 2, 1, "1997-01-31", 1, 500, 0, "MAIL"),
         (2, 1, 1, "1998-01-01", 1, 5, 10, "AIR"),    # 0,045 -> 0,05.
         (2, 2, 1, "1998-01-01", 1, 5, 10, "AIR"),
-        (3, 1, 1, "1998-03-02", 4, 2000, 100, "AIR"), # Vente présente à revenu nul.
+        (3, 1, 1, "1998-03-02", 4, 2000, 100, "AIR"), # Vente à revenu nul.
     ])
     assert connection.execute("SELECT * FROM monthly_sales ORDER BY period").fetchall() == [
         ("1997-01", 2, 3, 1405, "14.05", ""),
