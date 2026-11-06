@@ -1,0 +1,10 @@
+# Préserver les octets des sources de l'exercice.
+* text=auto
+data/*.tbl -text
+
+# Les CSV se lisent avec les deux conventions de fin de ligne.
+outputs/*.csv text eol=lf
+
+# Espaces de mise en forme conservés dans les fichiers de l'énoncé original.
+README.md whitespace=-blank-at-eol
+ddl.sql whitespace=-blank-at-eol
