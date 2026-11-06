@@ -1,4 +1,4 @@
-"""Exemples de l'énoncé, cas limites et propriétés des deux exercices."""
+"""Tests de l'inversion des mots et de la justification."""
 
 import random
 import re
@@ -61,6 +61,7 @@ def test_justification_examples_and_boundaries(words, width, expected):
 
 
 def assert_justification_rules(words, width):
+    """Vérifier la largeur, l'ordre des mots et les espaces."""
     lines = full_justify(words, width)
     assert all(len(line) == width for line in lines)
     assert [word for line in lines for word in line.split()] == words
@@ -77,7 +78,7 @@ def assert_justification_rules(words, width):
             assert max(spaces) - min(spaces) <= 1
             assert spaces == sorted(spaces, reverse=True)
         if consumed < len(words):
-            # Aucun mot supplémentaire ne doit tenir, même avec un seul espace par intervalle.
+            # Le mot suivant ne doit plus tenir sur cette ligne.
             minimum_length = sum(map(len, tokens)) + len(tokens) - 1
             assert minimum_length + 1 + len(words[consumed]) > width
 

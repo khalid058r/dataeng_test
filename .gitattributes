@@ -7,4 +7,5 @@ outputs/*.csv text eol=lf
 
 # Espaces de mise en forme conservés dans les fichiers de l'énoncé original.
 README.md whitespace=-blank-at-eol
+ENONCE.md whitespace=-blank-at-eol
 ddl.sql whitespace=-blank-at-eol

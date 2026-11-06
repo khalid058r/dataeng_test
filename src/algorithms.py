@@ -1,17 +1,18 @@
-"""Inversion des mots et justification de texte, avec la bibliothèque standard."""
+"""Solutions des deux exercices : mots inversés et texte justifié."""
 
 
 def reverse_words(s: str) -> str:
-    """Inverser les mots en conservant un seul espace entre eux."""
+    """Inverser l'ordre des mots avec un seul espace entre eux."""
     words = s.split()
     return " ".join(reversed(words))
 
 
 def full_justify(words: list[str], max_width: int) -> list[str]:
-    """Remplir chaque ligne, puis répartir les espaces en privilégiant la gauche.
+    """Former des lignes de max_width caractères.
 
-    Les mots sont non vides, sans espaces, et tiennent dans max_width.
-    La dernière ligne et les lignes à un seul mot sont alignées à gauche.
+    Le surplus d'espaces va aux premiers intervalles.
+    La dernière ligne et les lignes à un mot sont alignées à gauche.
+    Les mots sont non vides, sans espaces, et tiennent dans la largeur.
     """
     if max_width < 1:
         raise ValueError("la largeur doit être positive")
@@ -23,7 +24,7 @@ def full_justify(words: list[str], max_width: int) -> list[str]:
     while start < len(words):
         end = start
         letters = 0
-        # end - start est le nombre d'espaces minimum avant le nouveau mot.
+        # Compter un espace entre les mots pour tester la place.
         while end < len(words) and letters + len(words[end]) + (end - start) <= max_width:
             letters += len(words[end])
             end += 1
@@ -32,6 +33,7 @@ def full_justify(words: list[str], max_width: int) -> list[str]:
         if end == len(words) or gaps == 0:
             line = " ".join(words[start:end]).ljust(max_width)
         else:
+            # Donner les espaces en plus aux premiers intervalles.
             base_spaces, extra_spaces = divmod(max_width - letters, gaps)
             parts = []
             for index in range(start, end - 1):

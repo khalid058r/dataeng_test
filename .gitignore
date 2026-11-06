@@ -132,3 +132,6 @@ example.db
 logs/
 *.pipeline.lock
 delivery/
+
+# Guides de révision et suivi personnels
+/notes_personnelles/

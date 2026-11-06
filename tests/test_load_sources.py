@@ -1,4 +1,4 @@
-"""Vérifications du contrat de chargement avec de petits fichiers contrôlables."""
+"""Tests du chargement et de la reprise après erreur."""
 
 import csv
 from datetime import date, timedelta
@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def write_files(data_dir, rows, trailing=True):
+    """Écrire les petits fichiers utilisés par les tests."""
     data_dir.mkdir(exist_ok=True)
     for table, records in rows.items():
         content = "".join(
@@ -28,6 +29,7 @@ def write_files(data_dir, rows, trailing=True):
 
 @pytest.fixture
 def source(tmp_path):
+    """Fournir un lot modifiable et le chemin de sa base temporaire."""
     rows = {
         "nation": [
             ["0", "ALGERIA", "0", "pays"],
@@ -57,6 +59,7 @@ def source(tmp_path):
 
 
 def snapshot(database):
+    """Lire les tables pour comparer deux chargements."""
     with sqlite3.connect(database) as conn:
         return {
             table: conn.execute(f"SELECT * FROM {table} ORDER BY 1, 2").fetchall()
@@ -141,7 +144,7 @@ def test_invalid_value_reports_location_and_rolls_back(source, table, column, ba
     data_dir, database, rows = source
     load_sources(data_dir, database)
     before = snapshot(database)
-    # Modifier aussi une donnée valide pour vérifier que tout est annulé.
+    # Changer aussi un nom pour vérifier l'annulation complète.
     rows["customer"][1][1] = "Nom qui ne doit pas etre publie"
     index = list(SOURCE_COLUMNS[table]).index(column)
     rows[table][0][index] = bad_value
@@ -322,7 +325,7 @@ def test_star_mapping_and_rounding(source):
         assert conn.execute(
             "SELECT SUM((extended_price_cents * (100 - discount_percent) + 50) / 100) "
             "FROM fact_sales"
-        ).fetchone()[0] == 3305  # 9,05 + 5,00 + 19,00 ; ne pas multiplier par quantité.
+        ).fetchone()[0] == 3305  # 9,05 + 5,00 + 19,00.
 
 
 @pytest.mark.parametrize(("first", "last", "days"), [
@@ -421,7 +424,7 @@ def test_real_legacy_schema_upgrade_preserves_data_and_rolls_back_ddl(source, ve
     database.parent.mkdir()
     with sqlite3.connect(database) as conn:
         conn.execute("PRAGMA foreign_keys = ON")
-        # Définitions des étapes 4 à 6 : absence de NATION et du nom de pays.
+        # Ancien schéma : ni table NATION ni nom de pays.
         conn.execute("""CREATE TABLE customer (
             C_CUSTKEY INTEGER PRIMARY KEY CHECK (C_CUSTKEY > 0),
             C_NAME TEXT NOT NULL, C_ADDRESS TEXT NOT NULL,
