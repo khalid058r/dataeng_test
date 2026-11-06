@@ -182,7 +182,8 @@ Résultat attendu : une réponse écrite aux questions d'exploitation et d'archi
 - [x] Vérifier qu'aucun chemin propre à la machine ni secret n'est nécessaire à l'exécution.
 - [x] Sélectionner les fichiers livrables et préparer le texte de la Pull Request.
 - [x] Confirmer le dépôt de publication : `khalid058r/dataeng_test`, public et initialement vide.
-- [ ] Pousser la branche et ouvrir la Pull Request dans le dépôt fourni avec un accès GitHub autorisé.
+- [x] Publier les branches `main` et `solution/python-sqlite-etl` dans `khalid058r/dataeng_test`.
+- [ ] Créer la Pull Request de `solution/python-sqlite-etl` vers `main` : l'API répond HTTP 401 et requiert un accès GitHub authentifié.
 - [ ] Créer le fork d'un éventuel dépôt original tiers si son URL est fournie.
 - [x] Préparer le brouillon du message de fin de test ; insérer le lien réel de Pull Request avant l'envoi.
 
@@ -202,3 +203,5 @@ L'archive de `delivery/` est régénérée lors du contrôle avant envoi du 06/1
 
 Comparaison point par point à l'énoncé dans `docs/CONTROLE_AVANT_ENVOI.md`. Dépendances vérifiées et 109 tests réussis sur le code actuel. La livraison locale est remise à jour après la simplification pédagogique ; le fork, la publication de la Pull Request et le message réel restent à effectuer avec l'URL d'origine et les accès nécessaires.
 Projet extrait de la nouvelle archive testé : 109 tests réussis, chargement depuis une base absente, lancement depuis un autre dossier, sept rapports conformes, relance identique et contrôles SQLite réussis. Les sept pages et exports Datasette sont conformes (HTTP 200). Le code et les données de l'archive finale sont comparés à cette copie testée.
+
+Publication GitHub : les deux branches ont été envoyées dans le dépôt personnel fourni. La création de Pull Request n'a pas abouti (HTTP 401 `Requires authentication`) et aucun message au recruteur n'a été envoyé. Le lien de comparaison et le texte prêt à reprendre sont dans `docs/LIVRAISON.md`.

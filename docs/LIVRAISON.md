@@ -4,6 +4,10 @@ Le code, les données de l'exercice, les rapports exemples et les instructions c
 
 Le dossier de travail initial n'a pas de dépôt Git propre ; les opérations Git se font dans une copie isolée sous `delivery/`. Ne pas utiliser le dépôt d'un autre projet détecté dans un dossier parent.
 
+Les branches `main` et `solution/python-sqlite-etl` ont été publiées dans ce dépôt. La création de la Pull Request par l'API a été refusée avec HTTP 401 (`Requires authentication`) ; elle n'est donc pas considérée créée. Le gestionnaire d'identifiants Git ne fournit pas de jeton utilisable pour cette opération, et l'intégration GitHub n'est pas installée dans la session.
+
+Pour terminer dans un navigateur connecté au compte, ouvrir [la comparaison prête pour créer la Pull Request](https://github.com/khalid058r/dataeng_test/compare/main...solution/python-sqlite-etl?expand=1), reprendre le titre et le corps de `PR_DESCRIPTION.md`, puis créer la Pull Request. L'ajout de l'intégration GitHub permet aussi de reprendre cette dernière étape depuis l'assistant, sans transmettre de jeton dans la conversation.
+
 ## 1. Contenu à versionner
 
 Inclure `README.md`, `requirements.txt`, `.gitignore`, `.gitattributes`, `etl/`, `src/`, `sql/`, `scripts/`, `tests/`, `docs/`, les données et fichiers de référence de l'énoncé, ainsi que les sept CSV exemples de `outputs/`.
