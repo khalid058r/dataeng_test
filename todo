@@ -1,0 +1,207 @@
+# TODO — Projet Data Engineer Junior/Mid
+
+Objectif : réaliser une solution Python + SQL simple, reproductible et explicable.
+Suivre les étapes dans l'ordre. Ce fichier décrit le travail à faire ; il ne contient pas la solution.
+
+## Périmètre
+
+Le README indique un minimum Junior/Mid de 2 à 3 tables chargées et un rapport agrégé.
+Parcours retenu : CUSTOMER, ORDERS et LINEITEM, puis ajout de NATION pour couvrir les analyses par pays.
+Les exercices d'algorithmique sont également présents dans l'énoncé.
+Les bonus sont reportés à la fin du socle Junior/Mid, à la demande de l'utilisateur.
+Ne pas poursuivre le profilage approfondi ni commencer Docker, le streaming, la génération de données ou les enrichissements bonus pendant ce parcours.
+L'exploration déjà réalisée est conservée ; les contrôles nécessaires au bon chargement restent prévus.
+Prochaine étape : finaliser la publication dans `https://github.com/khalid058r/dataeng_test` avec les accès GitHub, puis travailler la compréhension et les adaptations du projet. Le dépôt personnel fourni était vide et n'est pas un fork ; demander l'URL d'origine si elle existe.
+
+## 1. Préparer l'environnement local
+
+Éléments déjà observés sur la machine, à revalider si l'environnement change :
+- Linux ; Python 3.12.3 ; pip ; Git ; SQLite accessible depuis Python.
+- Docker/Compose, Make et GCC sont présents, mais ne sont pas nécessaires au socle Junior/Mid.
+
+Checklist de préparation :
+- [ ] Choisir un éditeur de code (préférence personnelle non bloquante ; terminal utilisé pour les vérifications).
+- [x] Vérifier Python 3.12, pip et Git.
+- [x] Créer et activer un environnement Python local `.venv`.
+- [x] Vérifier que pip fonctionne dans cet environnement.
+- [x] Vérifier l'accès à SQLite via le module standard Python `sqlite3` ; aucun serveur de base n'est nécessaire.
+- [x] Installer Datasette dans l'environnement pour consulter la base et les requêtes dans le navigateur.
+- [x] Installer pytest pour vérifier les transformations et les exercices d'algorithmique.
+- [x] Prévoir un fichier de dépendances avec les versions utilisées (`requirements.txt`).
+- [ ] Préparer le fork GitHub et le dépôt de travail pour la livraison finale.
+- [x] Vérifier que `.venv`, les fichiers temporaires et les bases générées sont exclus du versionnement (règles `.gitignore` présentes ; dépôt Git à préparer).
+
+Environnement préparé le 03/11/2026. Mode d'emploi : `docs/environnement.md`.
+Réactiver `.venv` dans chaque nouveau terminal ; l'activation effectuée pendant la préparation ne modifie pas les terminaux déjà ouverts.
+
+Résultat attendu : un environnement isolé prêt à exécuter Python, SQL et les tests.
+
+## 2. Comprendre et documenter les sources
+
+- [x] Lire le README, le DDL et le diagramme ERD.
+- [x] Décrire le format `.tbl` : texte ASCII, séparateur `|`, absence d'en-tête et séparateur final.
+- [x] Identifier les colonnes et les clés de CUSTOMER, ORDERS et LINEITEM.
+- [x] Documenter les relations client → commandes → lignes de commande.
+- [x] Relever les volumes sources : CUSTOMER = 1 500, ORDERS = 15 000, LINEITEM = 60 175 lignes.
+- [x] Documenter les différences entre le DDL et l'ERD, notamment les identifiants de LINEITEM et PARTSUPP.
+- [x] Prévoir des types adaptés aux montants décimaux, remises, taxes et dates.
+- [x] Pour SQLite, choisir et documenter une représentation des montants évitant les erreurs d'arrondi, par exemple les centimes entiers.
+
+Exploration terminée le 04/11/2026 : notebook `notebooks/01_data_exploration.ipynb` exécuté sur les huit fichiers (86 805 lignes), rapport `docs/exploration_donnees.md`.
+Lecture du séparateur final corrigée ; types, valeurs vides, doublons, clés, relations, dates et catégories vérifiés.
+Le notebook a ensuite été simplifié pour faciliter la compréhension : contrôles principaux sur CUSTOMER, ORDERS, LINEITEM et NATION, et comptage des huit fichiers. Le rapport conserve les résultats de l'exploration complète initiale.
+Les règles de revenu, d'arrondi et de comparaison de périodes sont maintenant définies à l'étape 3, dans `docs/README_ETAPE_3.md`.
+
+Résultat attendu : une description des données et des règles de lecture.
+
+## 3. Définir les règles métier et le modèle cible
+
+- [x] Définir le revenu utilisé dans les rapports : prix étendu après remise, hors taxe, arrondi au centime par ligne avec ROUND_HALF_UP.
+- [x] Choisir la date de commande comme date de référence des ventes.
+- [x] Définir la comparaison de périodes : mois précédant celui de la date maximale contre le mois encore précédent ; juillet 1998 contre juin 1998 pour le jeu fourni, sous l'hypothèse de complétude documentée.
+- [x] Concevoir une table de faits au grain d'une ligne de commande, identifiée par commande + numéro de ligne.
+- [x] Prévoir une dimension client et une dimension date ; conserver le mode de transport comme attribut des faits.
+- [x] Conserver la clé de commande dans les faits pour la traçabilité.
+- [x] Dessiner le schéma en étoile et documenter les clés ainsi que les mesures.
+- [x] Définir le traitement des données invalides et le comportement lors d'une relance.
+
+Étape 3 terminée le 04/11/2026 : spécification dans `docs/README_ETAPE_3.md`.
+Modèle retenu : `dim_customer`, `dim_date` (calendrier continu) et `fact_sales`.
+Montants en centimes, remises en pourcentages entiers ; calcul du revenu dans les rapports.
+Rechargement complet transactionnel des tables générées, avec annulation en cas d'erreur.
+Le chargement des tables sources et ses tests sont réalisés à l'étape 4 ; les dimensions, les faits et leurs contrôles sont réalisés à l'étape 5.
+
+Résultat attendu : un modèle cible et des règles métier explicites.
+
+## 4. Réaliser le chargement des trois tables sources
+
+- [x] Organiser les scripts Python, fichiers SQL, tests et résultats : `etl/`, `sql/`, `tests/`, `outputs/`.
+- [x] Préparer les tables sources SQLite pour le périmètre retenu.
+- [x] Prévoir un périmètre de contraintes cohérent : les références vers NATION, PART et PARTSUPP attendent leur intégration.
+- [x] Charger CUSTOMER, puis ORDERS, puis LINEITEM.
+- [x] Gérer le séparateur final, les conversions de types et les lignes mal formées.
+- [x] Vérifier les clés primaires et les relations entre les trois tables chargées.
+- [x] Prévoir des transactions et des messages indiquant les volumes chargés et les erreurs.
+- [x] Permettre une relance sans créer de doublons.
+
+Étape 4 terminée le 04/11/2026 : `etl/load_sources.py`, `sql/01_sources.sql` et instructions dans `docs/README_ETAPE_4.md`.
+Base produite : `outputs/warehouse.sqlite` (fichier généré exclu du versionnement).
+Chargement réel vérifié : 1 500 clients, 15 000 commandes, 60 175 lignes ; 500 clients sans commande conservés.
+Relance vérifiée par comparaison des trois tables ; contrôles SQLite d'intégrité et de clés étrangères réussis.
+34 tests réussis : conversions, clés, fichiers invalides, annulation transactionnelle, relance et totaux des données fournies.
+
+Code ensuite simplifié à la demande de l'utilisateur : types de colonnes explicites, conversion centralisée, règles métier dans le SQL et étapes de transaction visibles. Guide de lecture ajouté à la section 7 de `docs/README_ETAPE_4.md`. Quatre cas supplémentaires vérifient les conversions aux limites des entiers SQLite et les décimales exactes.
+
+Résultat attendu : trois tables sources chargées et contrôlées.
+
+## 5. Alimenter le schéma en étoile
+
+- [x] Alimenter les dimensions avant la table de faits.
+- [x] Construire les faits à partir des lignes, commandes et clients.
+- [x] Préparer la mesure nécessaire aux rapports de revenu ; l'enrichissement explicite du revenu par ligne est aussi mentionné comme bonus dans le README.
+- [x] Vérifier qu'une ligne source ne produit qu'une ligne de faits.
+- [x] Comparer les quantités et montants entre les sources et la cible.
+- [x] Vérifier qu'une deuxième exécution conserve les mêmes volumes et agrégats.
+
+Étape 5 réalisée le 04/11/2026 : `sql/02_star_schema.sql`, fonction `load_star` dans `etl/load_sources.py` et guide `docs/README_ETAPE_5.md`.
+La même commande recharge les six tables dans une seule transaction, avec mise à niveau automatique de la base de l'étape 4.
+Volumes constatés : 1 500 clients en dimension, 2 406 dates continues et 60 175 faits ; 500 clients sans commande conservés.
+Relance comparée sur les six tables ; tests des correspondances, arrondis, dépassements et annulations, y compris un échec pendant le chargement des faits.
+47 tests réussis ; contrôles SQLite d'intégrité et de clés étrangères réussis sur la base générée.
+
+Résultat attendu : un entrepôt interrogeable, cohérent avec les sources.
+
+## 6. Livrer le premier rapport agrégé — jalon minimum Junior/Mid
+
+- [x] Produire une requête de revenu par mois à partir du schéma en étoile.
+- [x] Présenter le résultat sous forme de tableau et permettre sa consultation dans le navigateur.
+- [x] Vérifier le résultat sur un petit échantillon calculable manuellement.
+- [x] Expliquer la formule du revenu et la période couverte.
+- [x] Documenter les étapes nécessaires pour reproduire le chargement et ce rapport.
+
+Étape 6 réalisée le 05/11/2026 : vue `monthly_sales` définie dans `sql/03_monthly_sales.sql`, installée par le chargeur et consultable dans Datasette. Guide : `docs/README_ETAPE_6.md`.
+Résultat vérifié : 80 mois, de janvier 1992 à août 1998 ; dernier mois signalé comme potentiellement partiel. Total : 204 513 495 230 centimes après remise et arrondi par ligne.
+52 tests réussis, dont cinq nouveaux tests du rapport mensuel et une comparaison mois par mois aux fichiers sources avec `Decimal`.
+Réponses HTML et CSV de Datasette vérifiées (HTTP 200) ; export des 80 mois dans `outputs/monthly_sales.csv`, total conforme.
+
+Jalon atteint : trois tables chargées et un rapport agrégé reproductible.
+
+## 7. Compléter les cinq analyses de l'énoncé
+
+- [x] Ajouter NATION (25 lignes) aux sources et contrôler sa relation avec CUSTOMER.
+- [x] Enrichir la dimension client avec le pays du client ; préciser ce choix dans la documentation.
+- [x] Produire le top 5 des pays par revenu.
+- [x] Identifier le mode de transport le plus fréquent pour ces pays ; préciser si le résultat est global ou par pays et compter les lignes de commande.
+- [x] Identifier les meilleurs mois de vente et préciser si le regroupement porte sur année-mois ou mois du calendrier.
+- [x] Identifier les meilleurs clients par revenu et/ou quantité.
+- [x] Comparer le revenu de la période choisie avec celui de la précédente, avec gestion d'une période absente ou d'un montant précédent nul.
+- [x] Vérifier les jointures pour éviter de compter plusieurs fois le total d'une commande.
+- [x] Conserver les requêtes et leurs résultats reproductibles.
+
+Étape 7 réalisée le 05/11/2026 : NATION chargée avant CUSTOMER, référence pays contrôlée, `nation_name` ajouté à `dim_customer`, base en version 3 avec migration transactionnelle des versions 1 et 2.
+Vues dans `sql/04_business_reports.sql`, export reproductible via `python -m etl.export_reports` et guide `docs/README_ETAPE_7.md`.
+Résultats : CANADA, EGYPT, IRAN, BRAZIL et ALGERIA en tête ; FOB le plus fréquent (2 118 lignes) ; décembre 1993 meilleur mois ; client 1489 premier par revenu et quantité ; juillet 1998 en hausse de 12,21 % par rapport à juin.
+80 tests réussis ; sept exports CSV produits. Relance comparée sur les sept tables et sept rapports ; intégrité SQLite et clés étrangères vérifiées.
+Pages HTML et CSV des sept rapports vérifiées dans Datasette (HTTP 200) ; exports identiques aux résultats SQL locaux.
+
+Résultat attendu : les cinq questions métier couvertes par des requêtes SQL documentées.
+
+## 8. Réaliser les deux exercices d'algorithmique
+
+- [x] Résoudre l'inversion des mots : espaces multiples, espaces de début/fin et mot unique.
+- [x] Résoudre la justification : largeur exacte, répartition des espaces, ligne à un mot et dernière ligne alignée à gauche.
+- [x] Vérifier les exemples et les cas limites de l'énoncé.
+- [x] Expliquer les complexités en temps et en mémoire des deux solutions.
+
+Étape 8 réalisée le 05/11/2026 : `reverse_words` et `full_justify` dans `src/algorithms.py`, tests dans `tests/test_algorithms.py`, explications dans `docs/README_ETAPE_8.md`.
+26 nouveaux tests réussis : six exemples de l'énoncé, cas limites, contraintes maximales, conservation de l'entrée et propriétés de justification sur 100 jeux reproductibles.
+Complexités documentées : inversion en O(n) temps et mémoire ; justification en O(m + C) temps, O(C) pour le résultat et O(w) pour la construction d'une ligne. Question complémentaire sur l'inversion en place expliquée.
+Suite complète vérifiée : 106 tests réussis, y compris le pipeline et les rapports existants.
+
+Résultat attendu : deux solutions Python vérifiées dans le même environnement.
+
+## 9. Documenter l'exploitation et l'architecture
+
+- [x] Expliquer comment planifier le pipeline plusieurs fois par jour avec cron.
+- [x] Décrire les prérequis, chemins, journaux, reprises après échec et prévention des exécutions simultanées.
+- [x] Expliquer comment déployer et exécuter le projet sur une autre machine Linux.
+- [x] Décrire une évolution vers la production et les limites de la solution locale.
+- [x] Analyser l'impact d'une croissance mensuelle de 6,1 à 12,7 % sur les volumes, les temps de traitement et le stockage.
+
+Étape 9 réalisée le 05/11/2026 : `docs/README_ETAPE_9.md`, lanceur `scripts/run_pipeline.sh`, trois tests de succès, d'échec et de verrouillage. Aucune crontab ni infrastructure de production installée automatiquement.
+Croissance composée documentée : × 2,04 à × 4,20 après 12 mois, × 4,14 à × 17,63 après 24 mois ; impact sur le rechargement complet, le stockage, les sauvegardes et les évolutions possibles.
+
+Résultat attendu : une réponse écrite aux questions d'exploitation et d'architecture, sans obligation d'installer une infrastructure de production.
+
+## 10. Vérifier et préparer la livraison
+
+- [x] Compléter le README : prérequis, dépendances, ordre d'exécution, rapports, modèle et décisions métier.
+- [x] Documenter clairement le périmètre réalisé et les éléments bonus restant à faire.
+- [x] Vérifier les étapes depuis un environnement neuf et une base vide.
+- [x] Exécuter les contrôles utiles sur les volumes, les relations, les agrégats, les relances et les deux exercices.
+- [x] Vérifier qu'aucun chemin propre à la machine ni secret n'est nécessaire à l'exécution.
+- [x] Sélectionner les fichiers livrables et préparer le texte de la Pull Request.
+- [x] Confirmer le dépôt de publication : `khalid058r/dataeng_test`, public et initialement vide.
+- [x] Publier les branches `main` et `solution/python-sqlite-etl` dans `khalid058r/dataeng_test`.
+- [ ] Créer la Pull Request de `solution/python-sqlite-etl` vers `main` : l'API répond HTTP 401 et requiert un accès GitHub authentifié.
+- [ ] Créer le fork d'un éventuel dépôt original tiers si son URL est fournie.
+- [x] Préparer le brouillon du message de fin de test ; insérer le lien réel de Pull Request avant l'envoi.
+
+Validation locale réalisée le 05/11/2026 : installation neuve depuis `requirements.txt`, `pip check` réussi, 109 tests réussis, base initialement absente et relance identique sur sept tables et sept CSV. Pages HTML et exports CSV de Datasette vérifiés dans le nouvel environnement. Compte rendu : `docs/VALIDATION_FINALE.md`.
+README consolidé avec l'énoncé original conservé ; procédure Git et brouillons dans `docs/LIVRAISON.md` et `docs/PR_DESCRIPTION.md`.
+Guide d'apprentissage et de modification prêt : `docs/COMPRENDRE_ET_MODIFIER.md`.
+
+Livrable final : dépôt reproductible contenant les scripts Python/SQL, le modèle en étoile, les analyses, les deux exercices, les contrôles et la documentation.
+
+## Révision pédagogique du code
+
+Première simplification du chargeur : boucles classiques pour les noms de colonnes, la préparation des migrations et les volumes ; liste `SQL_FILES` pour l'ordre des scripts ; six étapes commentées dans `load_sources`.
+Comportement vérifié avec la suite existante : 109 tests réussis. Première lecture expliquée dans la section 6 de `docs/COMPRENDRE_ET_MODIFIER.md`.
+L'archive de `delivery/` est régénérée lors du contrôle avant envoi du 06/11/2026 pour inclure ces révisions ; le commit et les empreintes se trouvent dans `delivery/release_manifest.json`.
+
+## Contrôle avant envoi — 06/11/2026
+
+Comparaison point par point à l'énoncé dans `docs/CONTROLE_AVANT_ENVOI.md`. Dépendances vérifiées et 109 tests réussis sur le code actuel. La livraison locale est remise à jour après la simplification pédagogique ; le fork, la publication de la Pull Request et le message réel restent à effectuer avec l'URL d'origine et les accès nécessaires.
+Projet extrait de la nouvelle archive testé : 109 tests réussis, chargement depuis une base absente, lancement depuis un autre dossier, sept rapports conformes, relance identique et contrôles SQLite réussis. Les sept pages et exports Datasette sont conformes (HTTP 200). Le code et les données de l'archive finale sont comparés à cette copie testée.
+
+Publication GitHub : les deux branches ont été envoyées dans le dépôt personnel fourni. La création de Pull Request n'a pas abouti (HTTP 401 `Requires authentication`) et aucun message au recruteur n'a été envoyé. Le lien de comparaison et le texte prêt à reprendre sont dans `docs/LIVRAISON.md`.
