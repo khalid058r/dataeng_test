@@ -1,4 +1,124 @@
-# Data Engineer Interview Test
+# Data Engineer Interview Test — Solution Python et SQL
+
+Cette solution charge quatre fichiers sources dans SQLite, alimente un schéma en étoile et répond aux cinq questions métier de l'énoncé. Les deux exercices Python sont également réalisés. Le pipeline s'exécute sur une machine Linux ; les rapports se consultent dans le navigateur avec Datasette ou en CSV.
+
+## 1. Prérequis
+
+- Python 3.12 avec `venv` et SQLite embarqué version 3.37 ou supérieure.
+- Bash et `flock` (util-linux) pour le lanceur planifiable.
+- Accès au registre Python pour installer les dépendances de `requirements.txt`.
+
+Le chargement et l'export utilisent uniquement la bibliothèque standard Python. Datasette fournit l'interface de consultation et pytest les tests. Aucun serveur de base de données n'est nécessaire.
+
+## 2. Installer et exécuter
+
+Depuis la racine d'une copie du projet :
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m pip check
+python -c 'import sqlite3; print(sqlite3.sqlite_version); assert sqlite3.sqlite_version_info >= (3, 37, 0)'
+python -m pytest -q tests
+bash scripts/run_pipeline.sh
+```
+
+Le dossier `data/` contient les données fournies. S'il est absent, le recréer depuis l'archive de l'énoncé avec `python -m zipfile -e data.zip data`.
+
+Le lanceur affiche le chemin du journal quotidien dans `logs/`, puis y inscrit les volumes et le résultat. Il charge la base `outputs/warehouse.sqlite`, exporte sept CSV dans `outputs/` et empêche les exécutions simultanées sur la même base. Pour suivre une exécution, ouvrir le journal indiqué. Un code de sortie `0` signifie succès ; `75` signifie qu'une autre exécution détient le verrou.
+
+Pour exécuter les deux étapes séparément, par exemple en développement :
+
+```bash
+python -m etl.load_sources --data-dir data --database outputs/warehouse.sqlite
+python -m etl.export_reports --database outputs/warehouse.sqlite --output-dir outputs
+```
+
+Ces commandes directes ne prennent pas le verrou du lanceur. Les chemins par défaut sont calculés depuis le code ; les arguments explicites sont relatifs au dossier courant. En exploitation, utiliser le lanceur et un lot complet dont les fichiers restent stables pendant le chargement.
+
+## 3. Consulter les résultats
+
+```bash
+datasette serve outputs/warehouse.sqlite --host 127.0.0.1 --port 8001
+```
+
+Ouvrir [la base](http://127.0.0.1:8001/warehouse), puis une table ou une vue. Le [rapport mensuel](http://127.0.0.1:8001/warehouse/monthly_sales?_sort=period&_size=max) contient 80 mois avec le jeu fourni. Arrêter le serveur avec Ctrl+C.
+
+| Question | Vue SQL | Export dans `outputs/` |
+| --- | --- | --- |
+| Top 5 des pays par revenu | `top_5_nations` | `top_5_nations.csv` |
+| Transport le plus fréquent parmi ces pays | `top_shipping_modes` | `top_shipping_modes.csv` |
+| Meilleurs mois | `best_sales_months` | `best_sales_months.csv` |
+| Meilleurs clients par revenu | `customers_by_revenue` | `customers_by_revenue.csv` |
+| Meilleurs clients par quantité | `customers_by_quantity` | `customers_by_quantity.csv` |
+| Période courante contre précédente | `period_comparison` | `period_comparison.csv` |
+| Rapport mensuel chronologique | `monthly_sales` | `monthly_sales.csv` |
+
+Dans l'éditeur SQL de Datasette, utiliser par exemple `SELECT * FROM monthly_sales ORDER BY period;`. Les rapports et leurs résultats détaillés sont expliqués dans le [guide métier](docs/README_ETAPE_7.md).
+
+## 4. Sources et modèle
+
+Les fichiers `.tbl` sont du texte ASCII sans en-tête, séparé par `|`, avec un séparateur final. Les nombres décimaux utilisent le point et les dates le format `AAAA-MM-JJ`. Le DDL original et l'ERD sont conservés dans `ddl.sql` et `erd.png` ; le SQL exécuté est dans `sql/`.
+
+| Table chargée | Nombre de lignes attendu |
+| --- | ---: |
+| `nation` | 25 |
+| `customer` | 1 500 |
+| `orders` | 15 000 |
+| `lineitem` | 60 175 |
+| `dim_customer` | 1 500 |
+| `dim_date` | 2 406 |
+| `fact_sales` | 60 175 |
+
+Ces volumes décrivent le jeu fourni ; le parseur ne les impose pas aux autres lots. Les huit fichiers ont été explorés, mais seules les quatre sources nécessaires à ce périmètre sont chargées. Les références aux produits, fournisseurs et régions ne sont pas contrôlées dans la base livrée.
+
+```mermaid
+erDiagram
+    DIM_CUSTOMER ||--o{ FACT_SALES : client
+    DIM_DATE ||--o{ FACT_SALES : date_commande
+```
+
+Un fait représente une ligne de commande, avec la clé `(order_id, line_number)`. La dimension client conserve tous les clients et leur pays, y compris les 500 sans commande. Le calendrier contient tous les jours entre la première et la dernière date de commande. Le [modèle détaillé et les règles métier](docs/README_ETAPE_3.md) expliquent les colonnes et les relations.
+
+## 5. Règles de calcul et relance
+
+Le revenu est le prix étendu après remise, hors taxe. Le prix étendu inclut déjà la quantité. Les montants sont stockés en centimes entiers et la remise en pourcentage entier ; chaque ligne est arrondie au centime avec `ROUND_HALF_UP` avant la somme. Toutes les lignes sont incluses sans filtre sur les statuts ou retours. Aucune devise n'est définie par les sources.
+
+Les ventes sont rattachées à la date de commande et regroupées par année-mois. Le mois de la date maximale est signalé comme potentiellement partiel. Le rapport comparatif utilise les deux mois précédents : juillet contre juin 1998 pour le jeu fourni. Une période absente reste `NULL` ; une période présente à revenu nul reste zéro.
+
+Le pipeline effectue un rechargement complet des sept tables dans une transaction. Un fichier invalide, un doublon, une référence absente ou un dépassement de capacité annule le chargement. La dernière base validée est conservée. Les bases du projet en versions 1 et 2 sont migrées vers la version 3 ; les bases étrangères et les versions inconnues sont refusées.
+
+Les vues SQL reflètent les données validées. Les CSV se réexportent après chaque succès ; la publication de l'ensemble des sept fichiers n'est pas atomique. Le pipeline attend un instantané complet des quatre sources, pas un flux de nouvelles lignes seulement.
+
+## 6. Tests et exercices Python
+
+```bash
+python -m pytest -q tests
+python -m pytest -q tests/test_algorithms.py
+```
+
+La suite complète compte **109 tests réussis**, dont 26 pour les deux exercices. Elle couvre la lecture des sources, les conversions exactes, les contraintes, les migrations, les annulations, les rapports, les ex æquo, les périodes absentes, les exports et le lanceur.
+
+Les fonctions `reverse_words` et `full_justify` sont dans [`src/algorithms.py`](src/algorithms.py). Le [guide d'algorithmique](docs/README_ETAPE_8.md) présente les exemples et les complexités. Les résultats des vérifications depuis un environnement neuf sont consignés dans le [compte rendu de validation](docs/VALIDATION_FINALE.md). Le [contrôle avant envoi](docs/CONTROLE_AVANT_ENVOI.md) compare le livrable aux exigences de l'énoncé et distingue les actions GitHub restantes.
+
+## 7. Exploitation, architecture et compréhension
+
+Le [guide d'exploitation](docs/README_ETAPE_9.md) décrit les quatre lancements quotidiens avec cron, les verrous, les journaux, les reprises, la sauvegarde et le déploiement Linux. Il répond aussi aux questions d'architecture et de croissance mensuelle de 6,1 à 12,7 %. Le projet fournit les commandes ; il n'installe aucune planification ni aucun serveur permanent sur la machine.
+
+Le [guide pour comprendre et modifier le projet](docs/COMPRENDRE_ET_MODIFIER.md) donne un ordre de lecture et indique les fichiers à adapter selon une nouvelle règle, un rapport ou une source. Les guides des étapes 4 à 8 restent disponibles pour suivre la construction du projet. L'[exploration des sources](docs/exploration_donnees.md) conserve les résultats du profilage initial.
+
+Le [dossier de livraison](docs/LIVRAISON.md) précise les fichiers à versionner, le texte de Pull Request et le message de livraison. Le dépôt de publication indiqué est [khalid058r/dataeng_test](https://github.com/khalid058r/dataeng_test). Ce dépôt personnel a été créé vide ; la consigne de fork vers un éventuel dépôt original nécessite l'URL de ce dernier. La publication et la création de la Pull Request doivent être confirmées sur GitHub, séparément de la validation locale.
+
+## 8. Périmètre et bonus
+
+Le socle fonctionnel, les deux exercices, l'exploitation et l'architecture sont documentés et vérifiés localement. Le livrable utilise un hôte unique et un rechargement complet. L'interface Datasette est limitée par défaut à l'adresse locale.
+
+Restent optionnels et reportés : Docker, streaming, génération de données, classification du solde en trois groupes, déplacement des dates sur les deux dernières années et colonne persistée de revenu par ligne. Le profilage initial et le calcul du revenu dans les requêtes sont déjà présents.
+
+---
+
+# Énoncé original
 
 We are looking for a high quality data engineer which can deliver comprehensive solutions for our continuity and business growth. 
 
